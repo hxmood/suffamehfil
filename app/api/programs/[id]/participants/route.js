@@ -73,34 +73,3 @@ export async function POST(req, { params }) {
     );
   }
 }
-
-// Remove participant from program
-export async function DELETE(req, { params }) {
-  await connectMongoDb();
-  const participantId = params.participantId;
-  const programId = params.id;
-
-  try {
-    const updatedProgram = await Program.findByIdAndUpdate(
-      programId,
-      {
-        $pull: {
-          participants: { participant: participantId }
-        }
-      },
-      { new: true }
-    ).populate('participants.participant').populate('participants.team');
-
-    return NextResponse.json(
-      { message: "Participant removed successfully", program: updatedProgram },
-      { status: 200 }
-    );
-
-  } catch (error) {
-    console.error("Error removing participant:", error);
-    return NextResponse.json(
-      { error: "Failed to remove participant" },
-      { status: 500 }
-    );
-  }
-}
