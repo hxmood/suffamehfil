@@ -3,7 +3,7 @@ import { connectMongoDb } from "@/libs/connection";
 import Program from "@/models/Program";
 import { NextResponse } from "next/server";
 
-export async function GET(request, { params }) {
+export async function GET(_, { params }) {
   try {
     await connectMongoDb();
     const { id } = await params;
@@ -27,9 +27,9 @@ export async function GET(request, { params }) {
 }
 
 // UPDATE program
-export async function PUT(request) {
+export async function PUT(request, { params }) {
   await connectMongoDb();
-  const { id } = await getParams(request);
+  const { id } = await params;
   const { name, category, type } = await request.json();
 
   if (!name || !category || !type) {
@@ -80,10 +80,10 @@ export async function PUT(request) {
 }
 
 // DELETE program
-export async function DELETE(request) {
+export async function DELETE(_, { params }) {
   try {
     await connectMongoDb();
-    const { id } = await getParams(request);
+    const { id } = await params;
 
     const deletedProgram = await Program.findByIdAndDelete(id);
 
