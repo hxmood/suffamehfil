@@ -57,15 +57,18 @@ export default function AssignParticipants() {
   };
 
   const isParticipantAssigned = (participantId) => {
-    return program?.participants.some((p) =>
-      p.participant.equals(participantId)
+    return program?.participants.some(
+      (p) =>
+        p.participant._id === participantId || p.participant === participantId
     );
   };
 
   const isTeamAtLimit = (teamId) => {
     if (!program || program.type === "individual") return false;
     return (
-      program.participants.filter((p) => p.team?.equals(teamId)).length >= 2
+      program.participants.filter(
+        (p) => p.team?._id === teamId || p.team === teamId
+      ).length >= 2
     );
   };
 
