@@ -1,4 +1,3 @@
-// app/admin/programs/[id]/assign/page.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -9,46 +8,51 @@ import { FiUserPlus, FiX, FiArrowLeft, FiFilter } from "react-icons/fi";
 export default function AssignParticipants() {
   const router = useRouter();
   const params = useParams();
-  const programId = params.id; // Now properly accessed via useParams()
+  const programId = params.id;
 
   const [program, setProgram] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [filters, setFilters] = useState({
-    team: "",
-    category: "",
-  });
+  const [filters, setFilters] = useState({ team: "", category: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    if (!programId) return; // Ensure programId exists before fetching
+    if (!programId) return;
+    setLoading(true);
+    setError(""); // Clear previous errors
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        const [programRes, participantsRes, teamsRes] = await Promise.all([
-          axios.get(`/api/programs/${programId}`),
-          axios.get(
-            `/api/participant?team=${filters.team}&category=${filters.category}`
-          ),
-          axios.get("/api/teams"),
-        ]);
-
-        setProgram(programRes.data);
-        setParticipants(participantsRes.data);
-        setTeams(teamsRes.data);
-      } catch (err) {
+    axios
+      .all([
+        axios.get(`/api/programs/${programId}`),
+        axios.get(
+          `/api/participant?team=${encodeURIComponent(
+            filters.team
+          )}&category=${encodeURIComponent(filters.category)}`
+        ),
+        axios.get("/api/teams"),
+      ])
+      .then(
+        axios.spread((programRes, participantsRes, teamsRes) => {
+          setProgram(programRes.data || null);
+          setParticipants(
+            Array.isArray(participantsRes.data) ? participantsRes.data : []
+          );
+          setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+        })
+      )
+      .catch((err) => {
         console.error("Failed to fetch data:", err);
-        setError("Failed to load data. Please try again.");
-      } finally {
+        setError(
+          err?.response?.data?.error || "Failed to load data. Please try again."
+        );
+        setParticipants([]);
+        setTeams([]);
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-
-    fetchData();
+      });
   }, [programId, filters.team, filters.category]);
 
   const handleFilterChange = (e) => {
@@ -57,16 +61,18 @@ export default function AssignParticipants() {
   };
 
   const isParticipantAssigned = (participantId) => {
-    return program?.participants.some(
-      (p) =>
-        p.participant._id === participantId || p.participant === participantId
+    return (
+      program?.participants?.some(
+        (p) =>
+          p.participant._id === participantId || p.participant === participantId
+      ) || false
     );
   };
 
   const isTeamAtLimit = (teamId) => {
     if (!program || program.type === "individual") return false;
     return (
-      program.participants.filter(
+      program.participants?.filter(
         (p) => p.team?._id === teamId || p.team === teamId
       ).length >= 2
     );
@@ -76,21 +82,19 @@ export default function AssignParticipants() {
     try {
       setError("");
       setSuccess("");
-
       const response = await axios.post(
         `/api/programs/${programId}/participants`,
         {
           participantId: participant._id,
-          teamId: participant.team._id,
+          teamId: participant.team?._id || "",
         }
       );
-
       setProgram(response.data.program);
       setSuccess(`${participant.name} assigned successfully!`);
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       console.error("Assignment error:", err);
-      setError(err.response?.data?.error || "Failed to assign participant");
+      setError(err?.response?.data?.error || "Failed to assign participant");
     }
   };
 
@@ -98,20 +102,27 @@ export default function AssignParticipants() {
     try {
       setError("");
       setSuccess("");
-
       const response = await axios.delete(
         `/api/programs/${programId}/participants/${participantId}`
       );
-
       setProgram(response.data.program);
       setSuccess("Participant removed successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       console.error("Removal error:", err);
-      setError(err.response?.data?.error || "Failed to remove participant");
+      setError(err?.response?.data?.error || "Failed to remove participant");
     }
   };
 
+  const filteredParticipants = participants.filter((p) => {
+    const teamMatch = filters.team ? p.team?._id === filters.team : true;
+    const categoryMatch = filters.category
+      ? p.category === filters.category
+      : true;
+    return teamMatch && categoryMatch;
+  });
+
+  console.log("filteredParticipants data:", filteredParticipants);
   return (
     <div className="min-h-screen bg-[#F9F9F9] p-6">
       <div className="max-w-7xl mx-auto">
@@ -128,7 +139,7 @@ export default function AssignParticipants() {
             Assign Participants to{" "}
             <span className="text-[#FF6B6B]">{program?.name}</span>
           </h1>
-          <div className="w-24"></div> {/* Spacer for alignment */}
+          <div className="w-24"></div>
         </div>
 
         {/* Status Messages */}
@@ -137,7 +148,6 @@ export default function AssignParticipants() {
             <p>{error}</p>
           </div>
         )}
-
         {success && (
           <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-lg shadow-sm">
             <p>{success}</p>
@@ -171,7 +181,6 @@ export default function AssignParticipants() {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-[#2E2E2E] mb-2">
                   Category
@@ -191,7 +200,6 @@ export default function AssignParticipants() {
               </div>
             </div>
           </div>
-
           {/* Available Participants */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="bg-[#FFC312] p-4">
@@ -204,7 +212,7 @@ export default function AssignParticipants() {
                 <div className="flex justify-center items-center h-40">
                   <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#12CBC4]"></div>
                 </div>
-              ) : participants.length === 0 ? (
+              ) : filteredParticipants.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">
                     No participants found matching filters
@@ -212,7 +220,7 @@ export default function AssignParticipants() {
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {participants.map((participant) => (
+                  {filteredParticipants.map((participant) => (
                     <li
                       key={participant._id}
                       className={`p-3 rounded-lg border transition-all ${
@@ -258,13 +266,13 @@ export default function AssignParticipants() {
                           disabled={
                             isParticipantAssigned(participant._id) ||
                             (program?.type === "group" &&
-                              isTeamAtLimit(participant.team._id))
+                              isTeamAtLimit(participant.team?._id))
                           }
                           className={`p-2 rounded-full transition-colors ${
                             isParticipantAssigned(participant._id)
                               ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                               : program?.type === "group" &&
-                                isTeamAtLimit(participant.team._id)
+                                isTeamAtLimit(participant.team?._id)
                               ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                               : "bg-[#12CBC4] text-white hover:bg-[#0fa9a3]"
                           }`}
@@ -272,7 +280,7 @@ export default function AssignParticipants() {
                             isParticipantAssigned(participant._id)
                               ? "Already assigned"
                               : program?.type === "group" &&
-                                isTeamAtLimit(participant.team._id)
+                                isTeamAtLimit(participant.team?._id)
                               ? "Team limit reached"
                               : "Assign participant"
                           }
@@ -286,12 +294,11 @@ export default function AssignParticipants() {
               )}
             </div>
           </div>
-
           {/* Assigned Participants */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="bg-[#FF6B6B] p-4">
               <h2 className="text-lg font-semibold text-white">
-                Assigned Participants ({program?.participants.length || 0})
+                Assigned Participants ({program?.participants?.length || 0})
               </h2>
             </div>
             <div className="p-4">
@@ -299,7 +306,7 @@ export default function AssignParticipants() {
                 <div className="flex justify-center items-center h-40">
                   <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#12CBC4]"></div>
                 </div>
-              ) : !program?.participants.length ? (
+              ) : !program?.participants?.length ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">No participants assigned yet</p>
                 </div>
